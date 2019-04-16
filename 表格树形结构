@@ -1,0 +1,447 @@
+<template>
+  <div>
+    <el-table
+      :data="tableList"
+      border
+      v-loading.fullscreen.lock="fullscreenLoading"
+      element-loading-text="拼命加载中"
+      element-loading-spinner="el-icon-loading"
+      element-loading-background="rgba(0, 0, 0, 0.8)"
+      class="boatTablebaoxian"
+      :row-class-name="tableRowClassName"
+      @expand-change="rowClick"
+    >
+      <el-table-column type="expand">
+        <template slot-scope="props">
+          <el-main>
+            <el-table
+              :data="childrenData[props.$index]"
+              v-loading.fullscreen.lock="fullscreenLoading2"
+              element-loading-text="拼命加载中"
+              element-loading-spinner="el-icon-loading"
+              element-loading-background="rgba(0, 0, 0, 0.8)"
+              class="boatTablebaoxian"
+              border
+            >
+              <!-- <template v-for="(value,id) in detailHeaderC">
+              <el-table-column
+                align="center"
+                width
+                :prop="value"
+                :label="detailHeader[id]"
+                v-if="value!='projectid2'"
+              ></el-table-column>
+              </template>-->
+              <el-table-column prop="project_process_name" label="大流程" width="180"></el-table-column>
+              <el-table-column prop="project_step_name" label="小节点" width="180"></el-table-column>
+              <el-table-column prop="SourceProjectname" label="源系统项目名称"></el-table-column>
+              <el-table-column prop="SourceSystemName" label="源系统名称"></el-table-column>
+              <el-table-column prop="SourceProjectID" label="源系统项目id"></el-table-column>
+              <el-table-column
+                label="操作"
+                prop="handle"
+                show-overflow-tooltip
+                style="min-width:100px"
+                align="center"
+                width
+              >
+                <template slot-scope="prop">
+                  <el-button
+                    type="primary"
+                    @click.stop="systemJump(prop.row,prop.$index)"
+                    size="mini"
+                  >进入系统</el-button>
+                </template>
+              </el-table-column>
+              <!-- <div slot="empty">暂无数据,</div> -->
+            </el-table>
+          </el-main>
+        </template>
+      </el-table-column>
+      <el-main>
+        <template v-for="(col,index) in tableOption.headerListTab">
+          <el-table-column
+            show-overflow-tooltip
+            align="center"
+            width
+            :prop="col"
+            :label="tableOption.headerList[index]"
+          ></el-table-column>
+        </template>
+      </el-main>
+      <el-table-column
+        label="操作"
+        prop="handle"
+        show-overflow-tooltip
+        style="min-width:100px"
+        align="center"
+        width
+      >
+        <template slot-scope="scope">
+          <el-button
+            type="primary"
+            @click.stop="checkForDetails_bak(scope.row,scope.$index)"
+            size="mini"
+            :style="{background:'#04bf8d',borderColor:'#04bf8d'}"
+          >查看</el-button>
+          <el-button
+            type="primary"
+            @click="checkForDetails3"
+            size="mini"
+            :style="{backgroundColor:'#01c5d3',borderColor:'#01c5d3'}"
+          >视频资料</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <el-dialog title="项目详情" :visible.sync="dialogTableVisible" :modal="false">
+      <!-- {{selectProject}} -->
+      <el-table
+        :data="selectProject"
+        border
+        class="boatTablebaoxian"
+        fit
+        v-loading.fullscreen.lock="fullscreenLoading"
+      >
+        <template v-for="(col,index) in dialoHeaderC">
+          <el-table-column align="center" width :property="col" :label="dialoHeader[index]"></el-table-column>
+        </template>
+        <!-- <div slot="empty">暂无数据,</div> -->
+      </el-table>
+    </el-dialog>
+    <el-dialog title="视频资料" :visible.sync="dialogAudio" :modal="false" :style="{marginTop:'8%',}">
+      <div :style="{height:'300px'}"></div>
+    </el-dialog>
+
+    <div class="fenye">
+      <div class="block">
+        <el-pagination
+          class="fenye_font"
+          @current-change="currentChange"
+          :current-page.sync="pageNo"
+          :page-size="pageSize"
+          :page-count="pageCount"
+          layout="total, prev, pager, next, jumper"
+          :total="total"
+        ></el-pagination>
+      </div>
+    </div>
+    <div
+      v-if="openVideoBox"
+      style="position: absolute;top:20%;left:10%;width:1000px;height:600px;z-index:9999;border:3px solid #333;background-color:white;"
+    >
+      <div
+        @click="closeFrame()"
+        style="position: absolute;right:-2%;top:-2%;width:30px;height:30px;background-color:white;border:3px solid #000;text-align:center;cursor:pointer;z-index:9999"
+      >X</div>
+      <iframe
+        src="http://hzjw.hzfx0571.com/Monitor/V1.html"
+        frameborder="0"
+        style="position: relative;width:100%;height:100%;z-index:999"
+      ></iframe>
+    </div>
+  </div>
+</template>
+<script>
+export default {
+  props: {
+    option: Object
+  },
+  data() {
+    return {
+      fullscreenLoading: true,
+      fullscreenLoading2: true,
+      // 弹框表格标题数据
+      dialoHeader: [],
+      dialoHeaderC: [],
+      selectProject: [],
+      dialogTableVisible: false,
+      // 分页数据
+      pageNo: 1,
+      pageSize: 20,
+      total: 0,
+      pageCount: 0,
+      // 表格标题数据
+      headerList: [],
+      tableList: [],
+      tableOption: {},
+      // 二级表格数据以及标题
+      detailList: [],
+      detailHeader: [],
+      detailHeaderC: [],
+      childrenData: [],
+      // 视频遮罩
+      openVideoBox: false,
+      dialogAudio: false
+    };
+  },
+  computed: {},
+  methods: {
+    // 表格数据获取
+    getData(r, x) {
+      var _this = this;
+      if (r !== undefined) {
+        if (!r.sqlcode) {
+          return;
+        }
+      } else {
+        return;
+      }
+      if (x == undefined || x == null) {
+        x = "1";
+      }
+      let postData = {
+        sqlcode: r.sqlcode,
+        pageSize: "20",
+        pageNum: x
+      };
+      this.axios({
+        method: "post",
+        url: this.urlLocal + "tableDataIntf/buildDataJson",
+        data: postData
+      }).then(res => {
+        // debugger;
+        let x = JSON.parse(res.data.result_data);
+        let y = JSON.parse(res.data.result_header);
+        this.tableOption = {
+          headerList: y[0].split(","),
+          tableList: JSON.parse(res.data.result_data),
+          pageCount: res.data.pageCount,
+          totalCount: res.data.totalCount,
+          pageNo: res.data.pageNo,
+          pageSize: res.data.pageSize,
+          headerListTab: y[1].split(",")
+        };
+        this.tableList = [];
+        this.tableList.push(...JSON.parse(res.data.result_data));
+        this.tableList = JSON.parse(res.data.result_data).map(
+          (item, index) => ({
+            ...item,
+            index
+          })
+        );
+        this.total = this.tableOption.totalCount;
+        this.fullscreenLoading = false;
+      });
+    },
+    currentChange(currentPage) {
+      this.pageNo = currentPage;
+      this.getData(this.option, currentPage);
+    },
+    tableRowClassName({ row, rowIndex }) {
+      row.index = rowIndex;
+    },
+//使用splice在每次点击之后在相对应的index处添加对应的数组，注意的是在往对应的位置添加时，如果该位置之前没有数组需要手动构造空数组，
+    rowClick(row, expandedRows) {
+      for (let a = 0; a <= row.index; a++) {
+        // 没有值的情况
+        if (!this.childrenData[a]) {
+          this.childrenData.splice(row.index, 1, []);
+        }
+      }
+      if (this.childrenData[row.index].length > 0) {
+        this.fullscreenLoading2 = false;
+      } else {
+        this.fullscreenLoading2 = true;
+        let arrRequest = [];
+        if (this.option.sqlcode == "01002") {
+          let x = row.Project_PK;
+          let postData = {
+            sqlcode: "01099",
+            pageSize: "100",
+            pageNum: "1",
+            sql_param: x
+          };
+          this.axios({
+            method: "post",
+            url: this.urlLocal + "tableDataIntf/buildDataJson",
+            data: postData
+          }).then(res => {
+            this.detailHeader = [];
+            this.detailHeaderC = [];
+            arrRequest = JSON.parse(res.data.result_data);
+            let y = JSON.parse(res.data.result_header);
+            this.detailHeader = y[0].split(",");
+            this.detailHeaderC = y[1].split(",");
+            if (row.index == 0) {
+              this.childrenData.splice(row.index, 1, arrRequest);
+            } else {
+              for (let i = 0; i <= row.index; i++) {
+                // 没有值的情况
+                // if (!this.childrenData[i]) {
+                //   this.childrenData.splice(row.index, 1, []);
+                // }
+                if (i === row.index) {
+                  this.childrenData.splice(row.index, 1, arrRequest);
+                }
+              }
+            }
+            this.fullscreenLoading2 = false;
+            // console.log(
+            //   row.index,
+            //   this.childrenData[row.index].length,
+            //   this.childrenData
+            // );
+          });
+        }
+      }
+    },
+    checkForDetails_bak(item, index) {
+      var xList = [
+        "4db00861-bc4e-4a17-836b-38f148aef468",
+        "5681d8b8-89b9-4249-83a6-a9fb16b6c0d7",
+        "1783a1b7-0b1e-4c96-a6b6-e7637a756889",
+        "c8465c2e-204f-4caa-9c1e-688d1480d46b",
+        "35dc7475-d19e-482f-8e6d-b10735d0e026"
+      ];
+      // this.axios.get('http://115.233.209.200:10050/hlframe/rest/tableDataIntf/initToken').then(function(data) {
+      //   var x = data.data
+      //   debugger
+      //   window.open('http://115.233.209.201:8088/Hzgcjsweb/#/a/task?wfBoxBizGuid=a35492dc-f633-479f-b4ce-922d87b2056d&rowguid=%7b'+xList[index]+'%7d&token='+x)
+      // })
+      window.open(
+        "http://115.233.209.201:8088/HZgcjsweb/#/a/prjView?p=2018-330105-47-01-004385-000"
+      );
+    },
+    checkForDetails(item, index) {
+      this.dialogTableVisible = true;
+      this.selectProject = [];
+      let x = item.Project_PK;
+      this.saveId = "";
+      let postData = {
+        sqlcode: "01001",
+        pageSize: "20",
+        pageNum: "1",
+        sql_param: x
+      };
+      this.axios({
+        method: "post",
+        url: this.urlLocal + "tableDataIntf/buildDataJson",
+        data: postData
+      }).then(res => {
+        // this.$set(this.tableList, index, {...r, showList: true});
+        this.saveId = item.Project_PK;
+        localStorage.setItem("keyPKId", this.saveId);
+        let y = JSON.parse(res.data.result_header);
+
+        this.selectProject.push(...JSON.parse(res.data.result_data));
+        this.dialoHeader = y[0].split(",");
+        this.dialoHeaderC = y[1].split(",");
+      });
+    },
+    systemJump(item, index) {
+      debugger;
+
+      //地空网     17
+      let urlx =
+        "http://172.18.104.214:8080/bs/login/valiLogin?message=EFA0A3CFAC1B129936FBEAFDBF786E16126DCE06C1FB892813B31635B3837A6D&param=";
+      //招投标
+      let urly =
+        "http://115.238.34.210:83/Account/Loging?message=3D8E9560D3AD25AD9F5B3DCA8FA61B9FB1DDD76131CF3DD2E04776ED708FCB1AA690CCAA5222165B5AD32FA3C25A8587A9BB79B71091104FAD59ADE2B743053B&url=http%3a%2f%2f115.238.34.210%3a83%2fZTBApp%2fProjectQuery%2fDetail%3fid%3d" +
+        item.SourceProjectID +
+        "%26_%3d1539240147461";
+      //信用网     13
+      let url2 =
+        "http://115.233.209.150:88/JSJGAuditing/GTLogin.aspx?message=C0AB5E99FF0E41B4D2ACAD0944DE02420336731D13E3CA24DC85C5C107DB3D10&url=http%3A%2F%2F115.233.209.150%3a88%2Fjsjgauditing%2FDesktopModules%2FCollectionLoad%2FInfoTable.aspx%3FItemID%3D" +
+        item.SourceProjectID +
+        "%26ItemType%3DProject01%26tabid%3Df10f2e22-401f-45b6-910a-96fc7e2dba64%26moduleid%3D81ede5df-4546-424a-a6cc-788e7dbca516%26ResourceID%3DJProjectManage-05";
+      // //房地产行业管理平台   5
+      // let url3 = "http://202.101.187.114/fc/DesktopModules/Project/ProjectItemView.aspx?projectID=" + item.SourceProjectID + /*5f996ac7-42dc-4d13-94ff-4faae2a0b93c*/"#&url=http%3a%2f%2f202.101.187.114%2ffc%2fGTLogin.aspx%3fmessage%3d6346642492437D2F5866A2A031D1C897B4BA510D1193102616697C14D6070B54"
+      //招标办
+      let url4 =
+        "http://115.233.209.212:82/Account/Logingp?message=3D8E9560D3AD25AD9F5B3DCA8FA61B9FB1DDD76131CF3DD2E04776ED708FCB1AA690CCAA5222165B5AD32FA3C25A85878D978EA2B5145A7515417B8A8987793B&url=http%3A%2F%2F115.233.209.212%3A82%2FJzywztbApp%2FIntegrateQuery%2FSegmentProjectSearchEdit%3Fshowid%3D" +
+        item.SourceProjectID +
+        "%26id%3D" +
+        item.projectid2 +
+        "%26_%3D1539154859799";
+      // //质量监督报告
+      // let url5 = "http://www.djdjsw.com/Business/Tplatform/PlayView2.aspx?NVRID=48433137-3130-3937-3630-64db8ba85303&ProjectGUID=3f2c6030-6600-4db3-ac58-d20c4ef387b1&rnd=0.3242373155387759"
+      //房地产行业管理平台
+      // let url3 = "http://115.233.209.155:90/fc/GTLogin.aspx?message=6346642492437D2F5866A2A031D1C897B4BA510D1193102616697C14D6070B54%26url%3dhttp%3a%2f%2f115.233.209.155%3a90%2ffc%2fDesktopModules%2fProject%2fProjectItemView.aspx%3fprojectID%3d" + item.SourceProjectID
+      let url3 =
+        "http://115.233.209.155:90/fc/GTLogin.aspx?message=6346642492437D2F5866A2A031D1C897B4BA510D1193102616697C14D6070B54&url=http%3A%2F%2F115.233.209.155%3A90%2Ffc%2FDesktopModules%2FProject%2FProjectItemView.aspx%3FprojectID%3D" +
+        item.SourceProjectID;
+      //施工图连省
+      let urls =
+        "http://115.233.209.151:8088/HZSgtls/#/a/task?wfBoxBizGuid=da9914a8-2465-407c-8496-07d5ccb550e8&SERIALNUMBER=" +
+        item.SourceProjectID;
+      //质量监督报告系统
+      let urlZ =
+        "http://172.18.104.149:502/GTLogin.aspx?message=E5BA6B80F69597E44ECA34EB9A2D64979A8CE84B37E5665BED24DE6C45FC5FDD5E4E2D2BAC7E49ABB444B309075B910D040AB1E7B586B75EF4D55B40669ABB2F&url=http%3a%2f%2f172.18.104.149%3a502%2fDesktopModules%2fQualitySupervisionReport%2fReportHouseDetail.aspx%3ftype%3d1%26id%3d" +
+        item.SourceProjectID;
+      switch (item.SourceSystemName) {
+        case "地下空间电子政务系统":
+          window.open(urlx + item.SourceProjectID);
+          break;
+        case "招标办业务系统":
+          window.open(url4);
+          break;
+        case "方案设计招投标":
+          window.open(urly);
+          break;
+        case "房地产行业管理平台":
+          window.open(url3);
+          break;
+        case "质量安全监督报告系统":
+          window.open(urlZ);
+          break;
+        case "房地产系统":
+          window.open(url3);
+          break;
+        case "信用网系统":
+          window.open(url2);
+          break;
+        case "勘察设计招投标系统":
+          window.open(urly);
+          break;
+        case "施工图联审系统":
+          window.open(urls);
+          break;
+        default:
+          break;
+      }
+    },
+
+    checkForDetails3() {
+      this.dialogAudio = true;
+    }
+  },
+
+  mounted() {
+    this.getData(this.option, 1);
+  },
+  watch: {
+    option: {
+      handler() {
+        this.getData(this.option, 1);
+      }
+    }
+  }
+};
+</script>
+<style lang="scss" scoped>
+.pagination li {
+  cursor: pointer;
+}
+.pagination span {
+  color: white;
+}
+th {
+  min-width: 100px;
+}
+tbody {
+  color: #000000;
+}
+.notmapTable .el-table tbody tr,
+.notmapTable .el-table tbody td {
+  background: transparent;
+}
+.fenye {
+  text-align: center;
+  margin-bottom: 20px;
+  margin-top: 20px;
+}
+</style>
+
+
+
