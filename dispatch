@@ -1,0 +1,791 @@
+<!--  调度 -->
+<template>
+  <!-- 调度记录 -->
+  <div id="dispatch">
+    <div class="D-wrapper">
+      <hl-dialog
+        title="景区旅客滞留事件调度执行过程"
+        bolName="bootInfoAll"
+        iconName="iconjingqulvkezhiliushijiantiaoduzhihangguocheng"
+        class="disContent"
+      >
+        <div slot="content">
+          <div class="topBottom lineDispatch">
+            <el-steps :active="active" finish-status="success" align-center>
+              <el-step
+                v-for="(item, index) in handle_list"
+                :key="index"
+                :title="item.yjbz"
+                :description="item.jssj==='null'?'':item.jssj"
+                @click.native="step(item,index)"
+              ></el-step>
+            </el-steps>
+          </div>
+          <div class="dispatchLine"></div>
+          <div class="dispatchTitle topBottom">
+            <div class="dispatchTitle1">领导指令</div>
+            <div class="dispatchTitle1">事件过程记录</div>
+          </div>
+          <div class="dispatchDirective topBottom">
+            <div class="dispatchDirectiveLeft">
+              <div class="delate-step-lt">
+                <div
+                  class="delate-time"
+                  :style="{'top': `${index*((400-10)/(activities.length-1))+4}px`}"
+                  v-for="(item, index) in activities"
+                  :key="index"
+                >
+                  <span style="color:#45a1ff">{{item.title}}</span>
+                  <br>
+                  {{item.timestamp}}
+                </div>
+              </div>
+              <div class="delate-step-rt">
+                <el-timeline :reserve="reserve=false">
+                  <el-timeline-item
+                    v-for="(activity,index) in activities"
+                    :key="index"
+                    :timestamp="activity.timestamp"
+                  >
+                    <el-card>
+                      <h4
+                        style="color:#45a1ff"
+                      >处理单位&nbsp;:&nbsp;{{activity.title}}&nbsp;&nbsp;{{activity.title}}</h4>
+                      <p>{{activity.content}}</p>
+                    </el-card>
+                  </el-timeline-item>
+                </el-timeline>
+              </div>
+            </div>
+            <div class="lineDispatch1"></div>
+            <div class="dispatchDirectiveRight">
+              <div class="delate-step-lt">
+                <div
+                  class="delate-time"
+                  :style="{'top': `${index*((400-10)/(activities.length-1))+4}px`}"
+                  v-for="(item, index) in activities"
+                  :key="index"
+                >
+                  <span style="color:#45a1ff">{{item.title}}</span>
+                  <br>
+                  {{item.timestamp}}
+                </div>
+              </div>
+              <div class="delate-step-rt">
+                <el-timeline :reserve="reserve=false">
+                  <el-timeline-item
+                    v-for="(activity,index) in activities"
+                    :key="index"
+                    :timestamp="activity.timestamp"
+                  >
+                    <el-card>
+                      <h4
+                        style="color:#45a1ff"
+                      >处理单位&nbsp;:&nbsp;{{activity.title}}&nbsp;&nbsp;{{activity.title}}</h4>
+                      <p>{{activity.content}}</p>
+                    </el-card>
+                  </el-timeline-item>
+                </el-timeline>
+              </div>
+            </div>
+          </div>
+          <div class="hlDialog-header">
+            <h4 class="hlDialog-title">
+              <i class="iconfont colorStyle iconjingqulvkezhiliushijiantiaoduzhihangguocheng"></i>
+              领导指令
+            </h4>
+          </div>
+          <div class="hlContent">
+            <el-input
+              type="textarea"
+              style="
+      background: transparent;
+      border: none;"
+              :rows="4"
+              placeholder="领导接收到值班中心警情意见，审核通过值班中心的处理意见。"
+              v-model="textarea"
+            ></el-input>
+          </div>
+        </div>
+        <div slot="footer">
+          <div class="dispatchFooter">
+            <el-button type="primary">提交处置信息</el-button>
+            <el-button type="primary" @click="closeStep">关闭</el-button>
+          </div>
+        </div>
+      </hl-dialog>
+      <!-- 调度执行人员 -->
+      <div class="alertInformation alertmonitor">
+        <hl-dialog
+          title="调度执行操作"
+          bolName="alertInformationEdit"
+          :class="iconName"
+          class="alertInformationDialog"
+        >
+          <div slot="content">
+            <div class="alertMonitorContent">
+              <el-button type="primary" size="mini" class="addButton" @click="addInfo('新增')">新 增</el-button>
+              <el-table :data="alarmData" border>
+                <el-table-column label="序号" type="index" width="70"></el-table-column>
+                <el-table-column prop="staSysType" show-overflow-tooltip label="调度指令"></el-table-column>
+                <el-table-column prop="staSysName" show-overflow-tooltip label="负责人"></el-table-column>
+                <el-table-column prop="staDataState" show-overflow-tooltip label="联系方式"></el-table-column>
+                <el-table-column prop="staContent" show-overflow-tooltip label="状态"></el-table-column>
+                <el-table-column label="操作" width="260">
+                  <template slot-scope="scope">
+                    <el-button
+                      type="primary"
+                      size="mini"
+                      class="handleButton"
+                      @click="editInfo('编辑')"
+                    >编 辑</el-button>
+                    <el-button
+                      type="primary"
+                      size="mini"
+                      class="handleButton"
+                      @click="sendMobile('发送')"
+                    >短 信</el-button>
+
+                    <el-button type="primary" size="mini" class="handleButton">完 成</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </div>
+          <div slot="footer">
+            <el-button type="primary" class="buttonStyle" size="mini" @click="closealarm">关闭</el-button>
+          </div>
+        </hl-dialog>
+      </div>
+      <!-- 事件处理信息弹窗 -->
+      <hl-dialog title="事件处理" bolName="alertHandle" class="alertHandleDialog">
+        <div slot="content">
+          <el-form :model="formDeal" :rules="rules1" label-width="90px" ref="ruleForm">
+            <el-row>
+              <el-col :span="7">
+                <el-form-item prop="address" label="处理单位：">
+                  <el-select v-model="form.address" placeholder="请选择人员" clearable>
+                    <el-option
+                      v-for="item in addressList"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
+                    ></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="7">
+                <el-form-item prop="name" label="处理人员：">
+                  <el-select v-model="form.name" placeholder="请选择人员" clearable>
+                    <el-option
+                      v-for="item in addressList"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
+                    ></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="7">
+                <el-form-item prop="status" label="处理状态：">
+                  <el-select v-model="form.status" placeholder="请选择" @change="onSelectedDrug"  clearable>
+                    <el-option
+                      v-for="item in statusList"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
+                    ></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row>
+              <el-col :span="24">
+                <el-form-item prop="info" label="事件过程记录：">
+                  <el-input type="textarea" v-model="form.info" rows="7"></el-input>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-form>
+        </div>
+        <div slot="footer">
+          <el-button type="primary" class="buttonStyle" size="mini" @click="alertalarm">提交</el-button>
+          <el-button type="primary" class="buttonStyle" size="mini" @click="closealarm">关闭</el-button>
+        </div>
+      </hl-dialog>
+      <!-- 地图打点信息 -->
+      <hl-dialog bolName="mapInfo" class="mapInfoDialog">
+        <div slot="header" class="header">
+          <h4 class="hlDialog-title">
+            <i class="iconfont colorStyle" :class="iconName" style="transform: scale(1.3);"></i>
+            景区:
+          </h4>
+        </div>
+        <div slot="content">
+          <div class="topBottom1"></div>
+          <div class="tour">xx景区</div>
+          <div class="tour">xx景点</div>
+          <div class="tour">xx停车场</div>
+          <div class="topBottom1"></div>
+          <div class="tour1">xxx景区售票入口处</div>
+          <div class="topBottom1"></div>
+          <img src class="tourImg" alt>
+        </div>
+        <div slot="footer">
+          <el-button type="primary" class="buttonStyle" size="mini" @click="closemap">关闭</el-button>
+        </div>
+      </hl-dialog>
+      <!-- 地图上专家库 物资装备 摄像头 -->
+      <div class="dispatchTab">
+        <div class="dispatchTab1">
+          <div class="dispatchText">
+            <i class="iconfont colorStyle iconwuzizhuangbei" style="transform: scale(1.3);"></i>
+          </div>
+          <div class="dispatchText">专家库</div>
+        </div>
+        <div class="dispatchTab1">
+          <div class="dispatchText">
+            <i class="iconfont colorStyle iconwuzizhuangbei" style="transform: scale(1.3);"></i>
+          </div>
+          <div class="dispatchText">物资装备</div>
+        </div>
+        <div class="dispatchTab1">
+          <div class="dispatchText">
+            <i class="iconfont colorStyle iconxianchangshipin" style="transform: scale(1.3);"></i>
+          </div>
+          <div class="dispatchText">摄像头</div>
+        </div>
+      </div>
+      <!-- 添加编辑调度执行 -->
+      <hl-dialog :title="title" class="addDispatchDialog" bolName="addDispatch">
+        <div slot="content">
+          <el-form :model="form" :rules="rules" label-width="90px" ref="ruleForm">
+            <el-row>
+              <el-col :span="7">
+                <el-form-item prop="name" label="负责人：">
+                  <el-select v-model="form.name" placeholder="请选择人员" clearable>
+                    <el-option
+                      v-for="item in peopleList"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
+                    ></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="7">
+                <el-form-item prop="mobile" label="联系方式：">
+                  <el-input v-model="form.mobile"></el-input>
+                </el-form-item>
+              </el-col>
+              <el-col :span="7">
+                <el-form-item prop="indate" label="时间选择">
+                  <el-date-picker v-model="form.indate" type="datetime" placeholder="选择日期时间"></el-date-picker>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row>
+              <el-col :span="7">
+                <el-form-item prop="status" label="执行状态：">
+                  <el-select v-model="form.status" placeholder="请选择" clearable>
+                    <el-option
+                      v-for="item in statusList"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
+                    ></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="7">
+                <el-form-item prop="disstep" label="应急步骤：">
+                  <el-select v-model="form.disstep" placeholder="请选择" clearable>
+                    <el-option
+                      v-for="item in dispatList"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
+                    ></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row>
+              <el-col :span="24">
+                <el-form-item prop="info" label="调度指令：">
+                  <el-input type="textarea" v-model="form.info" rows="7"></el-input>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-form>
+        </div>
+        <div slot="footer" class="dispatchFooter">
+          <el-button type="primary" @click="publish">保 存</el-button>
+          <el-button type="primary" @click="closeAdd">取 消</el-button>
+        </div>
+      </hl-dialog>
+      <!-- 发送短信调度执行 -->
+      <hl-dialog :title="title" class="sendDispatchDialog" bolName="sendDispatch">
+        <div slot="content">
+          <el-form :model="form" :rules="rules" label-width="90px" ref="ruleForm">
+            <el-row>
+              <el-col :span="10">
+                <el-form-item prop="name" label="发送对象：">
+                  <el-select v-model="form.name" placeholder="请选择人员" clearable>
+                    <el-option
+                      v-for="item in peopleList"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
+                    ></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="10">
+                <el-form-item prop="mobile" label="联系方式：">
+                  <el-input v-model="form.mobile"></el-input>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row></el-row>
+            <el-row>
+              <el-col :span="24">
+                <el-form-item prop="info" label="发送内容：">
+                  <el-input type="textarea" v-model="form.info" rows="7"></el-input>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-form>
+        </div>
+        <div slot="footer" class="dispatchFooter">
+          <el-button type="primary" @click="publish">发 送</el-button>
+          <el-button type="primary" @click="closeSend">取 消</el-button>
+        </div>
+      </hl-dialog>
+    </div>
+  </div>
+</template>
+
+<script>
+import { mapState } from "vuex";
+export default {
+  name: "",
+  data() {
+    return {
+      iconName: "icon-shengguangbaojing",
+      alarmData: [{}],
+      reserve: false,
+      textarea: "",
+      active: 2,
+      rules: {},
+      rules1: {},
+      title: "",
+      carryId:'',
+      formDeal: {
+        address: "",
+        name: "",
+        status: "",
+        info: ""
+      },
+      form: {
+        info: "",
+        name: "",
+        mobile: "",
+        indate: "",
+        status: "",
+        disstep: ""
+      },
+      addressList:[
+        {
+
+        },{
+
+        },
+      ],
+      peopleList: [
+        {
+         
+        }
+      ],
+      statusList: [
+        {
+          label: "未执行",
+          value: "1"
+        },
+        {
+          label: "执行中",
+          value: "2"
+        },
+        {
+          label: "已完成",
+          value: "3"
+        }
+      ],
+      dispatList: [
+        {
+          label: "应急响应",
+          value: "1"
+        },
+        {
+          label: "应急恢复",
+          value: "2"
+        }
+      ],
+      handle_list: [
+        // {
+        //   department: "警情上报",
+        //   h_result: "2018-10-15 13:00",
+        //   showStep: false
+        // },
+        // {
+        //   department: "判断警情",
+        //   h_result: "2018-10-15 13:00",
+        //   showStep: false
+        // },
+        // {
+        //   department: "应急启动",
+        //   h_result: "",
+        //   showStep: false
+        // },
+        // {
+        //   department: "应急响应",
+        //   h_result: "",
+        //   showStep: false
+        // },
+        // {
+        //   department: "应急回复",
+        //   h_result: "",
+        //   showStep: false
+        // },
+        // {
+        //   department: "应急结束",
+        //   h_result: "",
+        //   showStep: false
+        // },
+        // {
+        //   department: "总结",
+        //   h_result: "",
+        //   showStep: false
+        // }
+      ],
+      activities: [
+        {
+          title: "活动开始1",
+          content: "具体内容具体内容，具体内容",
+          timestamp: "2014-04-15"
+        },
+        {
+          title: "活动开始2",
+          content: "具体内容具体内容，具体内容",
+          timestamp: "2015-04-15"
+        },
+        {
+          title: "活动开始3",
+          content: "具体内容具体内容，具体内容",
+          timestamp: "2016-04-15"
+        },
+        {
+          title: "活动开始4",
+          content: "具体内容具体内容，具体内容",
+          timestamp: "2017-04-15"
+        }
+      ]
+    };
+  },
+  created() {
+    this.hldialog();
+
+    this.getDispatchstep();
+    this.handle_list[1].showStep = true;
+  },
+  computed: {
+    ...mapState({})
+  },
+  watch: {},
+  mounted() {},
+  methods: {
+    // 执行过程接口
+    getDispatchstep() {
+      let postData = {
+        sjbh: "20190419"
+      };
+      this.axios({
+        url: "/dispatch/tbDdzxgc/getAllData",
+        method: "post",
+        data: postData
+      })
+        .then(res => {
+          let data = res.data.resultData || {};
+          this.handle_list = data;
+          // for(let i=0;i< this.handle_list.length;i++){
+
+          // }
+        })
+        .catch(err => console.error(err));
+    },
+    // 打开调度过程弹框和执行操作弹框
+    hldialog() {
+      (this.$store.state.bootInfoAll = true),
+        (this.$store.state.alertInformationEdit = true);
+      this.$store.state.mapInfo = true;
+    },
+    // 关闭执行操作弹框
+    closealarm() {
+      this.$store.state.alertInformationEdit = false;
+    },
+    closeStep() {
+      this.$store.state.bootInfoAll = false;
+    },
+    closemap() {
+      this.$store.state.mapInfo = false;
+    },
+    // 新增调度执行操作
+    addInfo(title) {
+      this.title = title;
+      console.log(this.title);
+      this.$store.state.addDispatch = true;
+    },
+    editInfo(title) {
+      this.title = title;
+      this.$store.state.addDispatch = true;
+    },
+    // 短信发送
+    sendMobile(title) {
+      this.title = title;
+      this.$store.state.sendDispatch = true;
+    },
+    closeSend() {
+      this.$store.state.sendDispatch = false;
+    },
+    closeAdd() {
+      this.$store.state.addDispatch = false;
+    },
+    publish() {},
+    // 步骤条启动中点击事件
+    step(item, index) {
+      // 01 未完成  02启动中 03 已完成
+      // 判断当前进程是否是启动中
+      console.log("item", item);
+      // 当前调度执行中id
+      this.carryId=item.id;
+      // console.log(this.handle_list[index - 1]);
+        if (item.zt == "02") {
+          this.$store.state.alertHandle = true;
+        } else {
+          return;
+        }
+      
+    },
+    onSelectedDrug(event){
+      // 选择已完成判断是否全部完成
+    if(event==3){
+      let postData = {
+           zxId:this.carryId
+          };
+          this.axios({
+            url: "/dispatch/eventDispatch/completeExecutorProcess",
+            method: "post",
+            data: postData
+          })
+            .then(res => {
+             console.log("全部完成，判断",res);
+             let resultFlag=res.data.resultFlag;
+             if(resultFlag==false){
+                this.$message({
+                        type: "success",
+                        message: res.data.resultMsg
+                    });
+             }
+            })
+            .catch(err => console.error(err));
+    }
+
+    },
+    // 提交处理
+    alertalarm() {
+
+      this.active++;
+      console.log(this.active);
+      this.handle_list[this.active - 1].h_result = "2018-10-15 13:00";
+      this.handle_list[this.active - 1].showStep = true;
+      this.$store.state.alertHandle = false;
+      this.handle_list.push({
+        department: "总结",
+        h_result: "",
+        showStep: false
+      });
+      this.activities.push({
+        title: "活动开始5",
+        content: "具体内容具体内容，具体内容",
+        timestamp: "2018-04-15"
+      });
+    },
+    closealarm(){
+       this.$store.state.alertHandle = false;
+    },
+  },
+  destroyed() {}
+};
+</script>
+ <style  lang="scss">
+#dispatch {
+  position: relative;
+  .tour {
+    display: inline-block;
+    margin-right: 30px;
+  }
+  .addButton {
+    margin-bottom: 20px;
+  }
+  .topBottom1 {
+    margin-bottom: 10px;
+  }
+  .tourImg {
+    width: 100%;
+    height: 150px;
+    background: #666666;
+  }
+  .mapInfoDialog {
+    right: 200px;
+    top: 500px;
+    cursor: pointer;
+    width: 300px;
+    height: 325px;
+  }
+  .addDispatchDialog {
+    left: 22%;
+    top: 207px;
+  }
+  .sendDispatchDialog {
+    left: 32%;
+    top: 207px;
+  }
+  .dispatchTab {
+    position: fixed;
+    left: 45%;
+    bottom: 20px;
+    width: 240px;
+    height: 80px;
+    background: #454e5e;
+  }
+  .disContent {
+    width: 1000px;
+    cursor: pointer;
+    left: 10px;
+    top: 20px;
+    padding: 0 20px;
+  }
+  .alertInformationDialog {
+    top: 20px;
+    right: 20px;
+    cursor: pointer;
+  }
+  .alertHandleDialog {
+    top: 207px;
+    left: 22%;
+    z-index: 111;
+  }
+  .lineDispatch:after {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 1px;
+    position: absolute;
+    right: 0;
+    top: 27%;
+    background: linear-gradient(to right, transparent, #bcbcbd, transparent);
+  }
+  .lineDispatch1 {
+    width: 1px;
+    height: 500px;
+    background: linear-gradient(to bottom, transparent, #bcbcbd, transparent);
+    margin: 0 40px;
+  }
+  .el-step__head.is-success {
+    color: #45a1ff;
+    border-color: #45a1ff;
+  }
+  .el-step__title.is-success {
+    color: #45a1ff;
+  }
+  .el-step__description.is-success {
+    color: #45a1ff;
+  }
+  .delate-step-lt {
+    width: 80px;
+    color: #818181;
+    font-size: 13px;
+    display: table-cell;
+    position: relative;
+  }
+  .delate-time {
+    position: absolute;
+  }
+  .delate-step-rt {
+    display: table-cell;
+  }
+  .dispatchDirective {
+    overflow-x: hidden;
+    overflow-y: scroll;
+    max-height: 200px;
+    display: flex;
+  }
+  .dispatchDirectiveLeft {
+    width: 40%;
+  }
+  .dispatchDirectiveRight {
+    width: 40%;
+  }
+  .dispatchLine1 {
+    width: 1px;
+    height: 400px;
+    background: #d8d0d0;
+    margin: 0 80px;
+  }
+  .el-timeline-item__timestamp.is-bottom {
+    color: transparent;
+  }
+  .topBottom {
+    margin-top: 20px;
+    margin-bottom: 20px;
+  }
+  .hlContent {
+    .el-textarea__inner {
+      background: transparent;
+      border: none;
+      margin-top: 20px;
+    }
+  }
+  .dispatchFooter {
+    float: right;
+    margin: 10px 0;
+  }
+  .dispatchTitle {
+    overflow: hidden;
+    font-weight: bold;
+    .dispatchTitle1 {
+      float: left;
+      width: 50%;
+      text-align: center;
+    }
+  }
+  .el-timeline-item__node {
+    border: 1px solid #45a1ff;
+    background: #ffffff;
+  }
+  .dispatchTab {
+    overflow: hidden;
+    text-align: center;
+    .dispatchTab1 {
+      width: 80px;
+      height: 80px;
+      float: left;
+      color: #ffffff;
+      .dispatchText {
+        height: 40px;
+        line-height: 50px;
+      }
+    }
+  }
+}
+</style>
